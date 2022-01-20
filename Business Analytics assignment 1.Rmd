@@ -1,0 +1,166 @@
+---
+title: "Business Analytics assignment 1"
+author: "Sumit Dutt Mishra"
+date: "13/03/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### importing data .csv file
+```{r}
+library(readr)
+oretail <- read_csv("Online_Retail.csv")
+```
+```{r}
+library(dplyr)
+```
+#### Q1) The breakdown of the number of transactions by countries in total number and also in percentage. Countries accounting for more than 1% of the total transactions
+
+```{r}
+oretail_countrywise  <- as.data.frame(table(oretail$Country))
+oretail_countrywise["Percentage"] <- oretail_countrywise$Freq/NROW(oretail) * 100
+names(oretail_countrywise) <- c("country","count","percentage")
+oretail_countrywise[oretail_countrywise$percentage > 1,]
+```
+EIRE, France , Germany and United Kingdom are the 4 countries that accounts for more than 1 % of total transactions.
+
+#### Q2) A new variable ‘TransactionValue’ is added which is the product of the exising ‘Quantity’ and ‘UnitPrice’ variables. Add this variable to the dataframe.
+ 
+```{r}
+oretail["TransactionValue"] <- oretail$Quantity * oretail$UnitPrice
+head(oretail)
+```
+#### Q3) Using the newly created variable, TransactionValue, show the breakdown of transaction values by countries i.e. how much money in total has been spent each country. Show this in total sum of transaction values. Show only countries with total transaction exceeding 130,000 British Pound.
+```{r}
+oretail%>%group_by(Country)%>%summarise(Total=sum(TransactionValue))
+oretail_transactionwise <- oretail%>%group_by(Country)%>%summarise(Total=sum(TransactionValue))
+```
+The breakdown of transaction values by country is present above.
+
+```{r}
+oretail_transactionwise[oretail_transactionwise$Total>130000,]
+```
+Australia, EIRE , France , Germany , Netherlands and United Kingdom are the 6 countries which exceed transaction value of 130000 British Pounds.
+
+
+#### Q4) After converting ‘InvoiceDate’ into a POSIXlt object
+
+```{r}
+Temp <- strptime(oretail $ InvoiceDate,format='%m/%d/%Y %H:%M',tz='GMT')
+oretail$New_Invoice_Date <- as.Date(Temp)
+oretail$New_Invoice_Date[20000]- oretail$New_Invoice_Date[10]
+oretail$Invoice_Day_Week= weekdays(oretail$New_Invoice_Date)
+oretail$New_Invoice_Hour = as.numeric(format(Temp, "%H"))
+oretail$New_Invoice_Month = as.numeric(format(Temp, "%m"))
+```
+
+##### a)The percentage of transactions (by numbers) by days of the week:
+
+```{r}
+oretail%>%group_by(Invoice_Day_Week)%>%summarise(count=n())%>%mutate(percentage=count / nrow(oretail)* 100) 
+```
+##### b) The percentage of transactions (by transaction volume) by days of the week:
+
+```{r}
+oretail%>%group_by(Invoice_Day_Week)%>%summarise(Total=sum(TransactionValue))%>%mutate(percentage=Total/sum(Total)*100)
+```
+
+##### c) The percentage of transactions (by transaction volume) by month of the year
+
+```{r}
+oretail%>%group_by(New_Invoice_Month)%>%summarise(Total=sum(TransactionValue))%>%mutate(percentage=Total/sum(Total)*100)
+
+```
+
+##### d) The date with the highest number of transactions from Australia
+
+```{r}
+oretail%>%filter(Country=="Australia")%>%group_by(New_Invoice_Date)%>%summarise(count=n())%>%arrange(desc(count))
+```
+
+
+
+
+#### Q5) The histogram of transaction values from Germany.
+```{r}
+filter_germany <- filter(oretail,Country=="Germany")
+hist(filter_germany$TransactionValue, main = "Transaction Value of Germany",xlab = "Transaction Value")
+```
+
+
+#### Q6) Customer having the highest number of transactions:
+```{r}
+
+oretail[!is.na(oretail$CustomerID),]%>%group_by(CustomerID)%>%summarise(count=n(),Total=sum(TransactionValue))%>%arrange(desc(count))
+```
+We can see that customer with Invoice number 573585 made the maximum transaction
+
+#### Customer who is most valuable
+```{r}
+oretail[!is.na(oretail$CustomerID),]%>%group_by(CustomerID)%>%summarise(count=n(),Total=sum(TransactionValue))%>%arrange(desc(Total))
+```
+There were few missing customer IDs . Hence , removing them and performing statistics for other customers.
+As we can see that the customer with Customer ID 14646  made 2085 transactions and the transaction value for his/her transaction is maximum, making him the most valuable customer.
+
+#### Q7) The percentage of missing values for each variable in the dataset:
+```{r}
+colMeans(is.na(oretail) *100)
+```
+Here , we can see that the missing values are present in the column of Customer ID and Description. The percentage of missing values in Customer ID column is 24.92669 % and for Description it is 0.2683107 %.
+
+#### Q8) The total number of transactions with missing CustomerID records by countries :
+```{r}
+NROW(oretail[is.na(oretail$CustomerID),])
+
+```
+The total number of rows in Customer ID column which have missing value is 135080
+
+```{r}
+oretail[is.na(oretail$CustomerID),] %>% group_by(Country) %>% summarise(count = n())
+```
+
+We can see that United Kingdom is the country with maximum records which do not have any value in the customer ID column.
+
+
+#### Q10) The return rate of the goods purchased by customers from France:
+
+```{r}
+oretail_france_cancel <- oretail%>%filter(Country=="France",Quantity<0)%>%count
+oretail_france_total <- oretail%>%filter(Country=="France")%>%count
+oretail_ratio <- oretail_france_cancel$n / oretail_france_total$n
+oretail_ratio * 100
+```
+
+The return rate for Customers of France is 1.741264 %
+
+#### Q11) The product that has generated the highest revenue for the retailer:
+
+```{r}
+oretail%>%group_by(Description)%>%summarise(Total=sum(TransactionValue))%>%arrange((desc(Total)))
+```
+Doctom Postage is the product that has generated the highest revenue for the retailer.
+
+#### Q12) Unique customers are represented in the dataset
+```{r}
+oretail_selectCustID <- oretail%>%select(CustomerID)%>%unique %>% nrow
+oretail_selectCustID
+```
+
+The total number of unique customers in the dataset is 4373
+
+
+
+
+
+
+
+
+
+
+
